@@ -2329,6 +2329,10 @@ class Systemctl:
         if self.not_user_conf(conf):
             logg.error("Unit %s not for --user mode", unit)
             return False
+        active = self.get_active_unit(unit)
+        if active != "active":
+            logg.error("Job for %s invalid", unit)
+            return False
         return self.reload_unit_from(conf)
     def reload_unit_from(self, conf):
         if not conf: return False
@@ -2632,8 +2636,13 @@ class Systemctl:
         # wait for the processes to have exited
         while True:
             dead = True
-            for pid in pidlist:
-                if pid_exists(pid) and not pid_zombie(pid):
+            if useKillMode in ["control-group"]:
+                for pid in pidlist:
+                    if pid_exists(pid) and not pid_zombie(pid):
+                        dead = False
+                        break
+            else:
+                if pid_exists(mainpid) and not pid_zombie(mainpid):
                     dead = False
                     break
             if dead:
@@ -2696,7 +2705,6 @@ class Systemctl:
             for unit in units:
                 active = self.get_active_unit(unit) 
                 enabled = self.enabled_unit(unit)
-                if enabled != "enabled": active = "unknown"
                 results += [ active ]
                 break
         ## how it should work:
